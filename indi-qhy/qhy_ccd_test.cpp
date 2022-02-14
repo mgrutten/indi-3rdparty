@@ -26,15 +26,85 @@
 
 #define VERSION 1.00
 
+void hexDump (
+    const char * desc,
+    const void * addr,
+    const int len,
+    int perLine
+) {
+    // Silently ignore silly per-line values.
+
+    if (perLine < 4 || perLine > 64) perLine = 16;
+
+    int i;
+    unsigned char buff[perLine+1];
+    const unsigned char * pc = (const unsigned char *)addr;
+
+    // Output description if given.
+
+    if (desc != NULL) printf ("%s:\n", desc);
+
+    // Length checks.
+
+    if (len == 0) {
+        printf("  ZERO LENGTH\n");
+        return;
+    }
+    if (len < 0) {
+        printf("  NEGATIVE LENGTH: %d\n", len);
+        return;
+    }
+
+    // Process every byte in the data.
+
+    for (i = 0; i < len; i++) {
+        // Multiple of perLine means new or first line (with line offset).
+
+        if ((i % perLine) == 0) {
+            // Only print previous-line ASCII buffer for lines beyond first.
+
+            if (i != 0) printf ("  %s\n", buff);
+
+            // Output the offset of current line.
+
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+
+        printf (" %02x", pc[i]);
+
+        // And buffer a printable ASCII character for later.
+
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e)) // isprint() may be better.
+            buff[i % perLine] = '.';
+        else
+            buff[i % perLine] = pc[i];
+        buff[(i % perLine) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly perLine characters.
+
+    while ((i % perLine) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII buffer.
+
+    printf ("  %s\n", buff);
+}
+
+
 int main(int, char **)
 {
 
     int USB_TRAFFIC = 10;
     int CHIP_GAIN = 10;
     int CHIP_OFFSET = 140;
-    int EXPOSURE_TIME = 1;
-    int camBinX = 1;
-    int camBinY = 1;
+    double EXPOSURE_TIME = 0.1;
+    int camBinX = 2;
+    int camBinY = 2;
 
     double chipWidthMM;
     double chipHeightMM;
@@ -61,7 +131,7 @@ int main(int, char **)
     unsigned int bpp;
     unsigned int channels;
 
-    unsigned char *pImgData = 0;
+    uint8_t *pImgData = 0;
 
     printf("QHY Test CCD using SingleFrameMode, Version: %.2f\n", VERSION);
 
@@ -172,7 +242,7 @@ int main(int, char **)
     }
 
     // get effective area
-    retVal = GetQHYCCDOverScanArea(pCamHandle, &effectiveStartX, &effectiveStartY, &effectiveSizeX, &effectiveSizeY);
+    retVal = GetQHYCCDEffectiveArea(pCamHandle, &effectiveStartX, &effectiveStartY, &effectiveSizeX, &effectiveSizeY);
     if (QHYCCD_SUCCESS == retVal)
     {
         printf("GetQHYCCDEffectiveArea:\n");
@@ -192,7 +262,7 @@ int main(int, char **)
     {
         printf("GetQHYCCDChipInfo:\n");
         printf("Effective Area startX x startY: %d x %d\n", effectiveStartX, effectiveStartY);
-        printf("Chip  size width x height     : %.3f x %.3f [mm]\n", chipWidthMM, chipHeightMM);
+        printf("Chip  size width x height     : %.6f x %.6f [mm]\n", chipWidthMM, chipHeightMM);
         printf("Pixel size width x height     : %.3f x %.3f [um]\n", pixelWidthUM, pixelHeightUM);
         printf("Image size width x height     : %d x %d\n", maxImageSizeX, maxImageSizeY);
     }
@@ -227,10 +297,24 @@ int main(int, char **)
     retVal = IsQHYCCDControlAvailable(pCamHandle, CONTROL_USBTRAFFIC);
     if (QHYCCD_SUCCESS == retVal)
     {
-        retVal = SetQHYCCDParam(pCamHandle, CONTROL_USBTRAFFIC, USB_TRAFFIC);
+        double min;
+        double max = USB_TRAFFIC;
+        double step;
+
+        retVal = GetQHYCCDParamMinMaxStep(pCamHandle, CONTROL_USBTRAFFIC, &min, &max, &step);
         if (QHYCCD_SUCCESS == retVal)
         {
-            printf("SetQHYCCDParam CONTROL_USBTRAFFIC set to: %d, success.\n", USB_TRAFFIC);
+            printf("USB min/max/step: %.2f %.2f %.2f \n", min, max, step);
+        }
+        else
+        {
+            printf("Could not get USB min/max\n");
+        }
+
+        retVal = SetQHYCCDParam(pCamHandle, CONTROL_USBTRAFFIC, 0.0);
+        if (QHYCCD_SUCCESS == retVal)
+        {
+            printf("SetQHYCCDParam CONTROL_USBTRAFFIC set to: %.2f, success.\n", 0.0);
         }
         else
         {
@@ -264,11 +348,11 @@ int main(int, char **)
         retVal = SetQHYCCDParam(pCamHandle, CONTROL_OFFSET, CHIP_OFFSET);
         if (QHYCCD_SUCCESS == retVal)
         {
-            printf("SetQHYCCDParam CONTROL_GAIN set to: %d, success.\n", CHIP_OFFSET);
+            printf("SetQHYCCDParam CONTROL_OFFSET set to: %d, success.\n", CHIP_OFFSET);
         }
         else
         {
-            printf("SetQHYCCDParam CONTROL_GAIN failed.\n");
+            printf("SetQHYCCDParam CONTROL_OFFSET failed.\n");
             getchar();
             return 1;
         }
@@ -326,7 +410,7 @@ int main(int, char **)
 
     // set exposure time
     retVal = SetQHYCCDParam(pCamHandle, CONTROL_EXPOSURE, EXPOSURE_TIME);
-    printf("SetQHYCCDParam CONTROL_EXPOSURE set to: %d, success.\n", EXPOSURE_TIME);
+    printf("SetQHYCCDParam CONTROL_EXPOSURE set to: %.3f, success.\n", EXPOSURE_TIME);
     if (QHYCCD_SUCCESS == retVal)
     {
     }
@@ -337,17 +421,72 @@ int main(int, char **)
         return 1;
     }
 
-    // set image resolution
-    retVal = SetQHYCCDResolution(pCamHandle, roiStartX, roiStartY, roiSizeX, roiSizeY);
+    // Query GPS
+    retVal = IsQHYCCDControlAvailable(pCamHandle, CAM_GPS);
     if (QHYCCD_SUCCESS == retVal)
     {
-        printf("SetQHYCCDResolution roiStartX x roiStartY: %d x %d\n", roiStartX, roiStartY);
-        printf("SetQHYCCDResolution roiSizeX  x roiSizeY : %d x %d\n", roiSizeX, roiSizeY);
+        printf("GPS available\n");
+
+        double gpsStatus = GetQHYCCDParam(pCamHandle, CAM_GPS);
+        printf("GPS status: %d\n", (int)gpsStatus);
+        
+        retVal = SetQHYCCDParam(pCamHandle, CAM_GPS, 1);
+        if (QHYCCD_SUCCESS == retVal)
+        {
+            gpsStatus = GetQHYCCDParam(pCamHandle, CAM_GPS);
+            printf("GPS status: %d\n", (int)gpsStatus);
+        }
+        else
+        {
+            printf("Could not set GPS mode, error: %d\n", retVal);
+            return 1;
+        }
     }
     else
     {
-        printf("SetQHYCCDResolution failure, error: %d\n", retVal);
-        return 1;
+        printf("GPS not available\n");
+    }
+
+
+    // Query binning
+    retVal = IsQHYCCDControlAvailable(pCamHandle, CAM_BIN1X1MODE);
+    if (QHYCCD_SUCCESS == retVal)
+    {
+        printf("Bin 1x1 available\n");
+    }
+    else
+    {
+        printf("Bin 1x1 not available\n");
+    }
+
+    retVal = IsQHYCCDControlAvailable(pCamHandle, CAM_BIN2X2MODE);
+    if (QHYCCD_SUCCESS == retVal)
+    {
+        printf("Bin 2x2 available\n");
+    }
+    else
+    {
+        printf("Bin 2x2 not available\n");
+    }
+
+    retVal = IsQHYCCDControlAvailable(pCamHandle, CAM_BIN3X3MODE);
+    if (QHYCCD_SUCCESS == retVal)
+    {
+        printf("Bin 3x3 available\n");
+    }
+    else
+    {
+        printf("Bin 3x3 not available\n");
+    }
+
+    retVal = IsQHYCCDControlAvailable(pCamHandle, CAM_BIN4X4MODE);
+    if (QHYCCD_SUCCESS == retVal)
+    {
+        printf("Bin 4x4 available\n");
+    }
+    else
+    {
+        printf("Bin 4x4 not available\n");
     }
 
     // set binning mode
@@ -369,62 +508,72 @@ int main(int, char **)
         retVal = SetQHYCCDBitsMode(pCamHandle, 16);
         if (QHYCCD_SUCCESS == retVal)
         {
-            printf("SetQHYCCDParam CONTROL_GAIN set to: %d, success.\n", CONTROL_TRANSFERBIT);
+            printf("SetQHYCCDParam CONTROL_TRANSFERBIT set to: %d, success.\n", 16);
         }
         else
         {
-            printf("SetQHYCCDParam CONTROL_GAIN failure, error: %d\n", retVal);
+            printf("SetQHYCCDParam CONTROL_TRANSFERBIT failure, error: %d\n", retVal);
             getchar();
             return 1;
         }
     }
 
-    // single frame
-    printf("ExpQHYCCDSingleFrame(pCamHandle) - start...\n");
-    retVal = ExpQHYCCDSingleFrame(pCamHandle);
-    printf("ExpQHYCCDSingleFrame(pCamHandle) - end...\n");
-    if (QHYCCD_ERROR != (uint32_t) retVal)
-    {
-        printf("ExpQHYCCDSingleFrame success (%d).\n", retVal);
-        if (QHYCCD_READ_DIRECTLY != retVal)
-        {
-            sleep(1);
-        }
-    }
-    else
-    {
-        printf("ExpQHYCCDSingleFrame failure, error: %d\n", retVal);
-        return 1;
-    }
-
-    // get requested memory lenght
-    uint32_t length = GetQHYCCDMemLength(pCamHandle);
-
-    if (length > 0)
-    {
-        pImgData = new unsigned char[length];
-        memset(pImgData, 0, length);
-        printf("Allocated memory for frame: %d [uchar].\n", length);
-    }
-    else
-    {
-        printf("Cannot allocate memory for frame.\n");
-        return 1;
-    }
-
     // get single frame
-    retVal = GetQHYCCDSingleFrame(pCamHandle, &roiSizeX, &roiSizeY, &bpp, &channels, pImgData);
-    if (QHYCCD_SUCCESS == retVal)
+    for(int i = 0; i < 100; ++i)
     {
-        printf("GetQHYCCDSingleFrame: %d x %d, bpp: %d, channels: %d, success.\n", roiSizeX, roiSizeY, bpp, channels);
-        //process image here
-    }
-    else
-    {
-        printf("GetQHYCCDSingleFrame failure, error: %d\n", retVal);
+        printf("img %d\n", i);
+
+        // single frame
+        printf("ExpQHYCCDSingleFrame(pCamHandle) - start...\n");
+        retVal = ExpQHYCCDSingleFrame(pCamHandle);
+        printf("ExpQHYCCDSingleFrame(pCamHandle) - end...\n");
+        if (QHYCCD_ERROR != (uint32_t) retVal)
+        {
+            printf("ExpQHYCCDSingleFrame success (%d).\n", retVal);
+            if (QHYCCD_READ_DIRECTLY != retVal)
+            {
+                sleep(1);
+            }
+        }
+        else
+        {
+            printf("ExpQHYCCDSingleFrame failure, error: %d\n", retVal);
+            return 1;
+        }
+
+        // get requested memory lenght
+        uint32_t length = GetQHYCCDMemLength(pCamHandle);
+
+        if (length > 0)
+        {
+            pImgData = new uint8_t[length];
+            memset(pImgData, 0, length);
+            printf("Allocated memory for frame: %d [uint8_t].\n", length);
+        }
+        else
+        {
+            printf("Cannot allocate memory for frame.\n");
+            return 1;
+        }
+
+        retVal = GetQHYCCDSingleFrame(pCamHandle, &roiSizeX, &roiSizeY, &bpp, &channels, pImgData);
+        if (QHYCCD_SUCCESS == retVal)
+        {
+            printf("GetQHYCCDSingleFrame: %d x %d, bpp: %d, channels: %d, success.\n", roiSizeX, roiSizeY, bpp, channels);
+            //process image here
+
+            hexDump("pImgData", pImgData, 256, 16);
+        }
+        else
+        {
+            printf("GetQHYCCDSingleFrame failure, error: %d\n", retVal);
+        }
+
+        delete [] pImgData;
+
     }
 
-    delete [] pImgData;
+
 
     retVal = CancelQHYCCDExposingAndReadout(pCamHandle);
     if (QHYCCD_SUCCESS == retVal)

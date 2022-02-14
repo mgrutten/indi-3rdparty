@@ -34,6 +34,229 @@
 
 static std::atomic<bool> exit_thread { false };
 
+
+void decodeGPSHeader(unsigned char *pImgData)
+{
+
+    //char ts[64] = {0}, iso8601[64] = {0}, data[64] = {0};
+
+    uint8_t gpsarray[64] = {0};
+    memcpy(gpsarray, pImgData, 64);
+/*
+    // Sequence Number
+    GPSHeader.seqNumber = gpsarray[0] << 24 | gpsarray[1] << 16 | gpsarray[2] << 8 | gpsarray[3];
+    snprintf(data, 64, "%u", GPSHeader.seqNumber);
+    IUSaveText(&GPSDataHeaderT[GPS_DATA_SEQ_NUMBER], data);
+
+    GPSHeader.tempNumber = gpsarray[4];
+
+    // Width
+    GPSHeader.width = gpsarray[5] << 8 | gpsarray[6];
+    snprintf(data, 64, "%u", GPSHeader.width);
+    IUSaveText(&GPSDataHeaderT[GPS_DATA_WIDTH], data);
+
+    // Height
+    GPSHeader.height = gpsarray[7] << 8 | gpsarray[8];
+    snprintf(data, 64, "%u", GPSHeader.height);
+    IUSaveText(&GPSDataHeaderT[GPS_DATA_HEIGHT], data);
+
+    // Latitude
+    GPSHeader.latitude = gpsarray[9] << 24 | gpsarray[10] << 16 | gpsarray[11] << 8 | gpsarray[12];
+    snprintf(data, 64, "%u", GPSHeader.latitude);
+    IUSaveText(&GPSDataHeaderT[GPS_DATA_LATITUDE], data);
+
+    // Longitude
+    GPSHeader.longitude = gpsarray[13] << 24 | gpsarray[14] << 16 | gpsarray[15] << 8 | gpsarray[16];
+    snprintf(data, 64, "%u", GPSHeader.longitude);
+    IUSaveText(&GPSDataHeaderT[GPS_DATA_LONGITUDE], data);
+
+*/
+
+    uint32_t latitude = gpsarray[9] << 24 | gpsarray[10] << 16 | gpsarray[11] << 8 | gpsarray[12];
+    printf("lat: %d\n", latitude);
+
+    uint32_t longitude = gpsarray[13] << 24 | gpsarray[14] << 16 | gpsarray[15] << 8 | gpsarray[16];
+    printf("lon: %u\n", longitude);
+
+/*
+    // Start Flag
+    GPSHeader.start_flag = gpsarray[17];
+    snprintf(data, 64, "%u", GPSHeader.start_flag);
+    IUSaveText(&GPSDataStartT[GPS_DATA_START_FLAG], data);
+
+    // Start Seconds
+    GPSHeader.start_sec = gpsarray[18] << 24 | gpsarray[19] << 16 | gpsarray[20] << 8 | gpsarray[21];
+    snprintf(data, 64, "%u", GPSHeader.start_sec);
+    IUSaveText(&GPSDataStartT[GPS_DATA_START_SEC], data);
+
+    // Start microseconds
+    // It's a 10Mhz crystal so we divide by 10 to get microseconds
+    GPSHeader.start_us = (gpsarray[22] << 16 | gpsarray[23] << 8 | gpsarray[24]) / 10.0;
+    snprintf(data, 64, "%.1f", GPSHeader.start_us);
+    IUSaveText(&GPSDataStartT[GPS_DATA_START_USEC], data);
+*/
+
+    uint32_t startSec = gpsarray[18] << 24 | gpsarray[19] << 16 | gpsarray[20] << 8 | gpsarray[21];
+    double startUSec =  (gpsarray[22] << 16 | gpsarray[23] << 8 | gpsarray[24]) / 10.0;
+    printf("start: %u, %08.1f\n", startSec, startUSec);
+
+
+/*
+    // Start JD
+    GPSHeader.start_jd = JStoJD(GPSHeader.start_sec, GPSHeader.start_us);
+    // Get ISO8601
+    JDtoISO8601(GPSHeader.start_jd, iso8601);
+    // Add millisecond
+    snprintf(ts, sizeof(ts), "%s.%03d", iso8601, static_cast<int>(GPSHeader.start_us / 1000.0));
+    IUSaveText(&GPSDataStartT[GPS_DATA_START_TS], ts);
+
+    // End Flag
+    GPSHeader.end_flag = gpsarray[25];
+    snprintf(data, 64, "%u", GPSHeader.end_flag);
+    IUSaveText(&GPSDataEndT[GPS_DATA_END_FLAG], data);
+
+    // End Seconds
+    GPSHeader.end_sec = gpsarray[26] << 24 | gpsarray[27] << 16 | gpsarray[28] << 8 | gpsarray[29];
+    snprintf(data, 64, "%u", GPSHeader.end_sec);
+    IUSaveText(&GPSDataEndT[GPS_DATA_END_SEC], data);
+
+    // End Microseconds
+    GPSHeader.end_us = (gpsarray[30] << 16 | gpsarray[31] << 8 | gpsarray[32]) / 10.0;
+    snprintf(data, 64, "%.1f", GPSHeader.end_us);
+    IUSaveText(&GPSDataEndT[GPS_DATA_END_USEC], data);
+
+    // End JD
+    GPSHeader.end_jd = JStoJD(GPSHeader.end_sec, GPSHeader.end_us);
+    // Get ISO8601
+    JDtoISO8601(GPSHeader.end_jd, iso8601);
+    // Add millisecond
+    snprintf(ts, sizeof(ts), "%s.%03d", iso8601, static_cast<int>(GPSHeader.end_us / 1000.0));
+    IUSaveText(&GPSDataEndT[GPS_DATA_END_TS], ts);
+
+    // Now Flag
+    GPSHeader.now_flag = gpsarray[33];
+    snprintf(data, 64, "%u", GPSHeader.now_flag);
+    IUSaveText(&GPSDataNowT[GPS_DATA_NOW_FLAG], data);
+
+    // Now Seconds
+    GPSHeader.now_sec = gpsarray[34] << 24 | gpsarray[35] << 16 | gpsarray[36] << 8 | gpsarray[37];
+    snprintf(data, 64, "%u", GPSHeader.now_sec);
+    IUSaveText(&GPSDataNowT[GPS_DATA_NOW_SEC], data);
+
+    // Now microseconds
+    GPSHeader.now_us = (gpsarray[38] << 16 | gpsarray[39] << 8 | gpsarray[40]) / 10.0;
+    snprintf(data, 64, "%.1f", GPSHeader.now_us);
+    IUSaveText(&GPSDataNowT[GPS_DATA_NOW_USEC], data);
+
+    // Now JD
+    GPSHeader.now_jd = JStoJD(GPSHeader.now_sec, GPSHeader.now_us);
+    // Get ISO8601
+    JDtoISO8601(GPSHeader.now_jd, iso8601);
+    // Add millisecond
+    snprintf(ts, sizeof(ts), "%s.%03d", iso8601, static_cast<int>(GPSHeader.now_us / 1000.0));
+    IUSaveText(&GPSDataNowT[GPS_DATA_NOW_TS], ts);
+
+    // PPS
+    GPSHeader.max_clock = gpsarray[41] << 16 | gpsarray[42] << 8 | gpsarray[43];
+    snprintf(data, 64, "%u", GPSHeader.max_clock);
+    IUSaveText(&GPSDataHeaderT[GPS_DATA_MAX_CLOCK], data);
+
+    IDSetText(&GPSDataHeaderTP, nullptr);
+    IDSetText(&GPSDataStartTP, nullptr);
+    IDSetText(&GPSDataEndTP, nullptr);
+    IDSetText(&GPSDataNowTP, nullptr);
+*/
+
+    uint8_t state = (gpsarray[33] & 0xF0) >> 4;
+    printf("GPS state: %u\n", state);
+
+/*
+    GPSState newGPState = static_cast<GPSState>((GPSHeader.now_flag & 0xF0) >> 4);
+    if (GPSStateL[newGPState].s == IPS_IDLE)
+    {
+        GPSStateL[GPS_ON].s = IPS_IDLE;
+        GPSStateL[GPS_SEARCHING].s = IPS_IDLE;
+        GPSStateL[GPS_LOCKING].s = IPS_IDLE;
+        GPSStateL[GPS_LOCKED].s = IPS_IDLE;
+
+        GPSStateL[newGPState].s = IPS_BUSY;
+        GPSStateLP.s = IPS_OK;
+        IDSetLight(&GPSStateLP, nullptr);
+    }
+    */
+}
+
+
+void hexDump (
+    const char * desc,
+    const void * addr,
+    const int len,
+    int perLine
+) {
+    // Silently ignore silly per-line values.
+
+    if (perLine < 4 || perLine > 64) perLine = 16;
+
+    int i;
+    unsigned char buff[perLine+1];
+    const unsigned char * pc = (const unsigned char *)addr;
+
+    // Output description if given.
+
+    if (desc != NULL) printf ("%s:\n", desc);
+
+    // Length checks.
+
+    if (len == 0) {
+        printf("  ZERO LENGTH\n");
+        return;
+    }
+    if (len < 0) {
+        printf("  NEGATIVE LENGTH: %d\n", len);
+        return;
+    }
+
+    // Process every byte in the data.
+
+    for (i = 0; i < len; i++) {
+        // Multiple of perLine means new or first line (with line offset).
+
+        if ((i % perLine) == 0) {
+            // Only print previous-line ASCII buffer for lines beyond first.
+
+            if (i != 0) printf ("  %s\n", buff);
+
+            // Output the offset of current line.
+
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+
+        printf (" %02x", pc[i]);
+
+        // And buffer a printable ASCII character for later.
+
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e)) // isprint() may be better.
+            buff[i % perLine] = '.';
+        else
+            buff[i % perLine] = pc[i];
+        buff[(i % perLine) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly perLine characters.
+
+    while ((i % perLine) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII buffer.
+
+    printf ("  %s\n", buff);
+}
+
+
 int videoThread(qhyccd_handle *pCamHandle, unsigned char *pImgData)
 {
     std::chrono::high_resolution_clock timer;
@@ -47,6 +270,8 @@ int videoThread(qhyccd_handle *pCamHandle, unsigned char *pImgData)
         if (GetQHYCCDLiveFrame(pCamHandle, &w, &h, &bpp, &channels, pImgData) == QHYCCD_SUCCESS)
         {
             frames++;
+            hexDump("pImgData", pImgData, 32, 16);
+            decodeGPSHeader(pImgData);
 
             auto stop = timer.now();
             fsec duration = (stop - start);
@@ -71,9 +296,9 @@ int main(int, char **)
     int USB_SPEED = 2;
     int CHIP_GAIN = 1;
     int CHIP_OFFSET = 180;
-    int EXPOSURE_TIME = 1;
-    int camBinX = 1;
-    int camBinY = 1;
+    double EXPOSURE_TIME = 1;
+    int camBinX = 2;
+    int camBinY = 2;
 
     double chipWidthMM;
     double chipHeightMM;
@@ -189,7 +414,7 @@ int main(int, char **)
     }
 
     // get effective area
-    rc = GetQHYCCDOverScanArea(pCamHandle, &effectiveStartX, &effectiveStartY, &effectiveSizeX, &effectiveSizeY);
+    rc = GetQHYCCDEffectiveArea(pCamHandle, &effectiveStartX, &effectiveStartY, &effectiveSizeX, &effectiveSizeY);
     if (QHYCCD_SUCCESS == rc)
     {
         fprintf(stderr, "GetQHYCCDEffectiveArea:\n");
@@ -242,7 +467,7 @@ int main(int, char **)
 
     // set exposure time
     rc = SetQHYCCDParam(pCamHandle, CONTROL_EXPOSURE, EXPOSURE_TIME);
-    fprintf(stderr, "SetQHYCCDParam CONTROL_EXPOSURE set to: %d us, success.\n", EXPOSURE_TIME);
+    fprintf(stderr, "SetQHYCCDParam CONTROL_EXPOSURE set to: %.3f us, success.\n", EXPOSURE_TIME);
     if (QHYCCD_SUCCESS == rc)
     {
     }
@@ -379,6 +604,32 @@ int main(int, char **)
     {
         fprintf(stderr, "SetQHYCCDBinMode failure, error: %d\n", rc);
         return 1;
+    }
+
+    // Query GPS
+    rc = IsQHYCCDControlAvailable(pCamHandle, CAM_GPS);
+    if (QHYCCD_SUCCESS == rc)
+    {
+        fprintf(stderr, "GPS available\n");
+
+        double gpsStatus = GetQHYCCDParam(pCamHandle, CAM_GPS);
+        fprintf(stderr, "GPS status: %d\n", (int)gpsStatus);
+        
+        rc = SetQHYCCDParam(pCamHandle, CAM_GPS, 1);
+        if (QHYCCD_SUCCESS == rc)
+        {
+            gpsStatus = GetQHYCCDParam(pCamHandle, CAM_GPS);
+            fprintf(stderr, "GPS status: %d\n", (int)gpsStatus);
+        }
+        else
+        {
+            fprintf(stderr, "Could not set GPS mode, error: %d\n", rc);
+            return 1;
+        }
+    }
+    else
+    {
+        printf("GPS not available\n");
     }
 
     // get requested memory lenght

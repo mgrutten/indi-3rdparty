@@ -1030,7 +1030,7 @@ bool QHYCCD::Connect()
         ret = IsQHYCCDControlAvailable(m_CameraHandle, CAM_GPS);
         // JM 2021.07.25: CAM_GPS is returned as true even when there is no GPS.
         // This bug was reported to QHY and awaiting a fix. Currently limiting GSP to QHY174 only.
-        if (ret == QHYCCD_SUCCESS && strstr(m_CamID, "174"))
+        if (ret == QHYCCD_SUCCESS && (strstr(m_CamID, "174") || strstr(m_CamID, "163")))
         {
             HasGPS = true;
         }
